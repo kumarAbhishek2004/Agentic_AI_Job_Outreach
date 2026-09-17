@@ -1,87 +1,152 @@
-# 🚀 AI Outreach Agent
+# Autonomous AI Job-Outreach Assistant 🚀
 
-A fully autonomous, human-in-the-loop AI cold outreach system. This agent automates the process of researching companies, drafting highly personalized job application emails, intelligently selecting the right resume, and dispatching them at human-like intervals to avoid spam filters.
+An end-to-end AI-powered autonomous web application designed to research companies, draft strictly formatted job applications, and dispatch them to HR recruiters. This assistant relies on a hybrid architecture that combines the reasoning abilities of modern LLMs (Google Gemini & Meta Llama 3) with a strictly deterministic scheduling and guardrail engine to guarantee safe, anti-spam delivery.
 
-## ✨ Features
+## 1. System Design 🏛️
 
-- **Dual LLM Architecture**: Uses Google Gemini (`gemini-1.5-flash-latest` / `gemini-3.6-flash`) for high-speed company research and drafting, with a seamless fallback to Meta's Open Source Llama 3 (`openai/gpt-oss-120b` via Groq) if rate limits are hit.
-- **Human-in-the-loop UI**: A beautiful Streamlit dashboard that lets you easily manage your database, trigger bulk AI drafting, and manually edit/approve emails before they are sent.
-- **Intelligent Resume Selection**: The AI analyzes the target company's industry and automatically attaches the most relevant PDF resume from your directory.
-- **Anti-Spam Dispatcher**: 
-  - Strictly operates during professional business hours (9:00 AM - 7:00 PM).
-  - Implements randomized delays (3-10 minutes) between single emails.
-  - Takes natural "lunch breaks" (25-50 minutes) after sending a batch of 8-15 emails.
-- **Gmail API Integration**: Securely sends fully formatted, Rich HTML emails natively through your Google account using OAuth 2.0.
+The system consists of a **Streamlit** frontend dashboard operating alongside a detached **Python background scheduler**, communicating via a persistent **SQLite** database. 
 
-## 📁 Directory Structure
+**System Data Flow:**
 
+```mermaid
+flowchart TD
+    UI[User UI - Streamlit Dashboard]
+    
+    subgraph Persistent Storage
+        Backend[Backend Core Logic]
+        DB[(SQLite: outreach.db)]
+    end
+    
+    subgraph AI Agent Pipeline
+        Router{Dual-LLM Router}
+        Gemini[Google Gemini]
+        Groq[Groq Llama 3]
+        Node1[Node 1: Research Company]
+        Node2[Node 2: Select Resume & Format Template]
+    end
+    
+    subgraph Dispatch Engine
+        Scheduler[Background Scheduler]
+        Guardrails{Anti-Spam Guardrails\n9AM-7PM}
+        Gmail[Gmail OAuth 2.0 API]
+    end
+
+    UI -->|Trigger Batch Generation| Backend
+    Backend --> Router
+    Router -->|Primary| Gemini
+    Router -.Fallback.-> Groq
+    Gemini --> Node1
+    Node1 --> Node2
+    Node2 -->|Save 'Drafted' Emails| DB
+    
+    UI -->|Human Reviews & Approves| DB
+    
+    Scheduler -->|Polls for 'Approved' Status| DB
+    Scheduler --> Guardrails
+    Guardrails -->|Wait 3-10 mins| Gmail
+    Guardrails -.->|Sleep if outside 9-7| Scheduler
+```
+
+1. **Data Ingestion**: The system reads raw HR contact lists from Excel (`.xlsx`) and securely loads them into the local SQLite database.
+2. **Top Bun (Agentic Research & Drafting)**: When triggered via the UI, the LLM pipeline (`gemini-3.6-flash` with a `gpt-oss-120b` fallback) researches the target company. It dynamically selects the most appropriate PDF resume and strictly formats a personalized outreach email based on a predefined template.
+3. **The Meat (Human-in-the-Loop)**: The drafted emails are staged in the UI. The user reviews the AI's logic, edits recipient emails if testing, and clicks "Approve". No email leaves the system without explicit human consent.
+4. **Bottom Bun (Deterministic Dispatch Engine)**: The background scheduler (`scheduler.py`) constantly polls the database for approved emails. It runs them through a strict policy engine (guardrails) before securely transmitting them via the Gmail API as Rich HTML.
+
+## 2. Agent Design & Logic 🧠
+
+### 📂 Project File Structure
 ```text
-ai_outreach_agent/
-├── agents/                 # LLM logic for researching and drafting
-├── contacts/               # Place your HR target list here (e.g., hr.xlsx)
-├── database/               # Local SQLite database storing history & state
-├── resumes/                # Place your PDF resumes here
-├── services/               # Core logic (DB, Gmail OAuth, LLM routing)
-├── app.py                  # The Streamlit Dashboard
-├── scheduler.py            # The background email dispatcher
-├── config.py               # Application configuration
+ai-outreach-agent/
+├── agents/                 # LLM logic nodes
+│   ├── analysis_agent.py   # Company research & summarization
+│   └── email_agent.py      # Template formatting & resume selection
+├── contacts/               # Raw data ingestion
+│   └── hr.xlsx             # Master HR target list
+├── database/               # Persistent Storage
+│   └── outreach.db         # Stateful SQLite session & queue database
+├── resumes/                # Dynamic attachments
+│   └── [Your PDFs].pdf     # Available resumes for the AI to select
+├── services/               # Core deterministic integrations
+│   ├── db_service.py       # SQLite transactions
+│   ├── gmail_service.py    # Gmail OAuth 2.0 & Rich HTML payload builder
+│   └── llm_service.py      # Dual-LLM routing logic
+├── app.py                  # Streamlit Frontend UI
+├── scheduler.py            # Deterministic Background Dispatch Engine
+├── config.py               # Global thresholds and API configurations
 ├── requirements.txt        # Python dependencies
-├── .env.example            # Environment variables template
-└── README.md
+└── .env.example            # Environment variables template
 ```
 
-## 🛠️ Installation
+### 🌟 Key Features
 
-**1. Clone the repository**
-```bash
-git clone https://github.com/yourusername/ai-outreach-agent.git
-cd ai-outreach-agent
-```
+**1. Strict Human-in-the-loop (HITL) Architecture**
+Cold outreach should never be fully autonomous without oversight. By wrapping the LLM drafting process in a Streamlit review UI, we get the best of both worlds: massive AI scaling with guaranteed human quality control.
 
-**2. Install dependencies**
+**2. Deterministic Anti-Spam Policy Engine**
+The scheduler is governed by strict, hard-coded temporal logic to mimic human behavior and protect domain reputation:
+- **Operating Hours:** Execution is mathematically locked to local business hours (9:00 AM - 7:00 PM).
+- **Micro-Delays:** Introduces a randomized `sleep(180, 600)` interval (3-10 minutes) between individual dispatches.
+- **Macro-Delays:** After a random batch of 8 to 15 emails, the engine enforces a 25-50 minute "lunch break" pause.
+
+**3. Dual-LLM Fallback Architecture**
+To circumvent API rate-limiting on free tiers, the `llm_service` relies on a dual-routing pattern:
+- **Primary:** Google's `gemini-3.6-flash` (or `gemini-1.5-flash-latest`) for extremely fast, lightweight JSON extraction.
+- **Fallback:** Groq's insanely fast open-source inference engine running `openai/gpt-oss-120b` (or Llama 3 70B) to seamlessly pick up dropped requests.
+
+**4. Dynamic HTML Payload Construction**
+The system doesn't just send plain text. The `gmail_service.py` dynamically maps the AI's output into a beautifully styled CSS/HTML payload, parsing paragraphs and enforcing strict `<p>` margins (10px gaps) for maximum readability on mobile and desktop email clients.
+
+## 🛠️ Technology Stack
+- **Frontend**: Streamlit, Pandas
+- **Backend/Engine**: Python 3.10+, SQLite
+- **LLM Providers**: Google GenAI, Groq
+- **API Integrations**: Google Workspace (Gmail API OAuth 2.0)
+- **Data Parsing**: PyYAML, Base64, Mimetypes
+
+## 🚀 Local Installation & Running Instructions
+
+### Prerequisites
+- Python 3.10+
+- Google Cloud Console Account (for Gmail API access)
+
+### 1. Backend Setup
+Clone the repository and install dependencies:
 ```bash
+git clone https://github.com/kumarAbhishek2004/Agentic_AI_Job_Outreach.git
+cd Agentic_AI_Job_Outreach
 pip install -r requirements.txt
 ```
 
-**3. Set up Environment Variables**
-Rename `.env.example` to `.env` and insert your API keys:
+### 2. Environment & Database Configuration
+Rename `.env.example` to `.env` and add your API keys:
 ```env
-GEMINI_API_KEY=your_gemini_api_key_here
-GROQ_API_KEY=your_groq_api_key_here
+GEMINI_API_KEY=your_key
+GROQ_API_KEY=your_key
 DAILY_EMAIL_LIMIT=40
 ```
+*Note: Ensure your `contacts/hr.xlsx` and `resumes/` folder are populated.*
 
-**4. Add your data**
-- Place your master Excel list of contacts inside the `contacts/` folder (e.g., `hr.xlsx`).
-- Place your PDF resumes inside the `resumes/` folder.
+### 3. Google OAuth Setup
+1. Go to Google Cloud Console and enable the **Gmail API**.
+2. Configure the **OAuth Consent Screen** (Desktop App) and add your email as a Test User.
+3. Download your Client ID JSON, rename it to `credentials.json`, and place it in the root folder.
 
-**5. Set up Gmail OAuth**
-- Go to the [Google Cloud Console](https://console.cloud.google.com/).
-- Enable the **Gmail API**.
-- Create an **OAuth Consent Screen** (add your personal email as a Test User).
-- Create **OAuth Client ID Credentials** (Application Type: Desktop App).
-- Download the resulting JSON file, rename it exactly to `credentials.json`, and place it in the root of this project.
+### 4. Booting the System
+You must run the two components simultaneously in separate terminal windows:
 
-## 🚀 Usage
-
-You operate the system using two separate tools:
-
-### 1. The Workspace (Streamlit)
-Whenever you want to work, open a terminal and run the dashboard:
-```bash
-python -m streamlit run app.py
-```
-- **Stats Tab**: View your daily limits and database health.
-- **Prepare Drafts Tab**: Select a batch size and let the AI research companies and write drafts.
-- **Review & Approve Tab**: Read the drafts, edit recipient emails (for testing), make tweaks, and click "Approve for Sending".
-
-### 2. The Mailman (Scheduler)
-In a separate terminal, run the background worker. You can leave this running all day.
+**Terminal 1 (The Dispatch Engine):**
 ```bash
 python scheduler.py
 ```
-*Note: The very first time you run this, a browser window will open asking you to log into your Google Account to authorize sending emails. After that, it will securely save a `token.json` file and run silently in the background.*
+*(On first run, this will pop open a browser window to authenticate with Google and generate `token.json`)*
 
-## 🔒 Security & Privacy
-- **No data leaves your machine** except for the LLM API calls and the Gmail dispatch. Everything is stored locally in your SQLite database.
-- Please ensure you do **not** commit your `.env`, `database/`, `credentials.json`, or `token.json` files to GitHub. A `.gitignore` has been provided to protect you.
+**Terminal 2 (The UI Dashboard):**
+```bash
+python -m streamlit run app.py
+```
+*(Use this UI to trigger drafting and approve emails for the scheduler to pick up)*
+
+## 🚀 Production Deployment Strategy
+Given the nature of local Desktop App OAuth flows (`credentials.json`), this architecture is explicitly designed to be run **locally** on your personal machine. 
+
+To deploy this to the cloud (e.g., Render or AWS EC2), the Google Cloud OAuth application type must be changed from "Desktop" to "Web Application", and you must handle secure token refresh via a dedicated callback route. For personal job-hunting purposes, local execution provides the highest security for your personal Gmail token.
