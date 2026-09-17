@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+
+# Environment Variables
+.env
+
+# Database (Do not upload your generated databases!)
+database/*.db
+database/*.sqlite
+
+# Google OAuth Credentials (CRITICAL: Do not upload these!)
+credentials.json
+token.json
+
+# Personal Data (Optional: ignore these if you don't want your resumes/contacts public)
+# contacts/*.xlsx
+# resumes/*.pdf
