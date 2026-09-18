@@ -16,14 +16,14 @@ groq_client = groq.Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
 def generate_json_response(prompt, system_prompt="You are a helpful AI assistant."):
     """
-    Tries Gemini first. If rate limited or fails, falls back to Groq (Llama 3).
+    Tries Gemini first. If it fails, falls back to Groq.
     Returns a parsed JSON dictionary.
     """
     # 1. Try Gemini
     if GEMINI_API_KEY:
         try:
             model = genai.GenerativeModel(
-                model_name="gemini-3.6-flash",
+                model_name="gemini-flash-latest",
                 system_instruction=system_prompt
             )
             response = model.generate_content(
@@ -36,8 +36,8 @@ def generate_json_response(prompt, system_prompt="You are a helpful AI assistant
         except Exception as e:
             print(f"Gemini failed (possibly rate limit). Error: {e}")
             print("Falling back to Groq...")
-    
-    # 2. Fallback to Groq GPT-OSS
+            
+    # 2. Fallback to Groq
     if groq_client:
         try:
             messages = [
@@ -47,11 +47,12 @@ def generate_json_response(prompt, system_prompt="You are a helpful AI assistant
             response = groq_client.chat.completions.create(
                 model="openai/gpt-oss-120b",
                 messages=messages,
-                response_format={"type": "json_object"}
+                response_format={"type": "json_object"},
+                max_tokens=4000
             )
             return json.loads(response.choices[0].message.content)
         except Exception as e:
-            print(f"Groq failed. Error: {e}")
+            print(f"Groq fallback failed. Error: {e}")
     
     if not GEMINI_API_KEY and not GROQ_API_KEY:
         print("Error: Neither GEMINI_API_KEY nor GROQ_API_KEY are configured in .env")

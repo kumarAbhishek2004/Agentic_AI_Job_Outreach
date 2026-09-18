@@ -23,39 +23,42 @@ def draft_email_and_select_resume(contact_id, hr_name, company_name, company_ana
     """
     available_resumes = get_available_resumes()
     
+    # Extract only the first name for a more natural greeting
+    first_name = hr_name.split()[0] if hr_name else "Hiring Manager"
+    
     system_prompt = "You are an expert AI Engineer applying for a job."
     prompt = f"""
-    You are an expert AI outreach assistant. Your job is to select the best resume and format a specific cold outreach email to {hr_name} at {company_name}.
+    You are an expert AI outreach assistant. Your job is to select the best resume and format a specific cold outreach email to {first_name} at {company_name}.
     
     Company Context:
     - Industry: {company_analysis.get('industry', 'Technology')}
     - What they do: {company_analysis.get('summary', '')}
+    - Key Tech Stack / Hiring Focus: {company_analysis.get('skills_required', 'Unknown')}
     
     Available Resumes (PDF filenames):
     {available_resumes}
     
     CRITICAL INSTRUCTION: You MUST use the EXACT email template below. Do not deviate from the structure, do not change the wording, do not remove the links. 
-    Only replace the placeholders [HR Name] with "{hr_name}" and [Company Name] with "{company_name}".
+    Only replace the placeholders [HR Name] with "{first_name}" and [Company Name] with "{company_name}".
     
     --- TEMPLATE START ---
     Hi [HR Name],
     
     I hope you're doing well.
     
-    I came across your profile while exploring opportunities at [Company Name].
+    I came across your profile while exploring opportunities at [Company Name] and wanted to reach out.
     
-    I'm a final-year B.Tech student at IIIT Una with hands-on experience in Generative AI, Machine Learning, and Deep Learning. I've built production-grade AI applications, including LLM-powered systems, RAG-based applications, MCP servers, and AI workflow automation, along with experience in FastAPI, API integrations, and model development. I've attached my resume for your reference. You can also explore my work here:
+    I'm Kumar Abhishek, a final-year B.Tech student at IIIT Una with hands-on experience in Generative AI, Machine Learning, Deep Learning, and Data Science. I've built AI applications including LLM-powered systems, RAG applications, MCP servers, and ML models, along with experience in Python, FastAPI, SQL, data analysis, and API integrations.
+    
+    I'm currently seeking internship or full-time opportunities in Generative AI, AI/ML, Agentic AI, Data Science, or Software Engineering. If there are any suitable openings at [Company Name], I'd be grateful if you could consider my profile. I've attached my resume for your reference.
     GitHub: https://github.com/kumarAbhishek2004
-    Portfolio: https://my-portfolio-zeta-orpin-72.vercel.app/
+    Portfolio:  https://my-portfolio-zeta-orpin-72.vercel.app/
     
-    I'm currently looking for internship and full-time opportunities in Generative AI, AI/ML, Machine Learning, Deep Learning, or Software Engineering. If there are any suitable openings at [Company Name], I'd be grateful if you could consider my profile.
-    
-    I have attached my resume for your consideration. I would be grateful for the opportunity to discuss how my skills and experience can contribute to your team.
     Thank you for your time and consideration. I look forward to hearing from you.
     
     Best regards,
     Kumar Abhishek
-    9608013812
+    +91 9608013812
     abhishekkumar.ch2607@gmail.com
     --- TEMPLATE END ---
     

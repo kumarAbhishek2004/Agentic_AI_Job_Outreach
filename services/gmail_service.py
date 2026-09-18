@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import GMAIL_CREDENTIALS_PATH, GMAIL_TOKEN_PATH
 
 # If modifying these scopes, delete the file token.json.
-SCOPES = ['https://www.googleapis.com/auth/gmail.send']
+SCOPES = ['https://www.googleapis.com/auth/gmail.compose']
 
 def authenticate_gmail():
     """Shows basic usage of the Gmail API.
@@ -45,7 +45,7 @@ def authenticate_gmail():
     return build('gmail', 'v1', credentials=creds)
 
 def send_email(to_address, subject, body, resume_filename):
-    """Drafts and sends an email via the Gmail API, attaching the specified resume."""
+    """Creates a draft email via the Gmail API, attaching the specified resume."""
     service = authenticate_gmail()
     if not service:
         return False, "Failed to authenticate with Gmail."
@@ -93,12 +93,12 @@ def send_email(to_address, subject, body, resume_filename):
 
         # encoded message
         encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
-        create_message = {'raw': encoded_message}
         
-        # pylint: disable=E1101
-        send_message = service.users().messages().send(userId="me", body=create_message).execute()
-        return True, send_message['id']
+        # CREATE DRAFT INSTEAD OF SENDING
+        draft_body = {'message': {'raw': encoded_message}}
+        draft = service.users().drafts().create(userId="me", body=draft_body).execute()
+        return True, draft['id']
         
     except Exception as e:
-        print(f"Error sending email to {to_address}: {e}")
+        print(f"Error creating draft for {to_address}: {e}")
         return False, str(e)
